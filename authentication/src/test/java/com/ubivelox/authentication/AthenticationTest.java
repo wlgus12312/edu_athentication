@@ -166,20 +166,7 @@ public class AthenticationTest
 
             }
 
-            // OffCard.ExternalAuthenticate_C_APDU = capduServiceImpl.sendApdu(OffCard.InitializeUpdate_C_APDU);
-
-            // String initialUpdate = initializeUpdate("");
-            // String initialResponse = capduServiceImpl.sendApdu(initialUpdate);
-            // String externalAuth = GaiaUtils.convertByteArrayToHexaString(externalAuthenticate(initialResponse));
         }
-
-        // 실제로 동작할 때의 메소드
-        // public static void getMutualAuthentication(final String hostChallenge) throws GaiaException, UbiveloxException, CardException
-        // {
-        //
-        // capduService.sendApdu(externalAuthenticate(capduService.sendApdu(initializeUpdate(hostChallenge))));
-        //
-        // }
 
     }
 

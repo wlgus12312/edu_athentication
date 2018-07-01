@@ -144,7 +144,6 @@ public class Athentication
         // CardImpl cardImpl = new CardImpl();
         // String initializeUpdateResponse = cardImpl.sendApdu(OffCard.InitializeUpdate_C_APDU);
 
-        // 84 82 00 00 10 70CA81178C079A4A 114998A816CBF511
         // host cryptogram과 MAC 생성
         String initializeUpdate_C_APDU = OffCard.InitializeUpdate_C_APDU;
 
@@ -161,14 +160,9 @@ public class Athentication
 
         String hostCryptogram = hostCryptogramTmp.substring(hostCryptogramTmp.length() - 16, hostCryptogramTmp.length());
 
-        // S-MAC 구하고 07EFCCEB0BB0CC01 A22E0CE1E1E395F8
-
         sessionkey = getSessionKeyENC("C-MAC", sequenceCounter);
 
         sessionkeyByteArray = GaiaUtils.convertHexaStringToByteArray(sessionkey);
-
-        // 848200001070CA81178C079A4A8000000000000000
-        // C-MAC 구해야함 Retail Mac
 
         String externalAuthenticate_C_APDU = OffCard.ExternalAuthenticate_C_APDU + hostCryptogram;
 

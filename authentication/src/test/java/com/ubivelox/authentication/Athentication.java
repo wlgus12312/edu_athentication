@@ -1,5 +1,10 @@
 package com.ubivelox.authentication;
 
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
+
+import javax.crypto.NoSuchPaddingException;
 import javax.smartcardio.CardException;
 
 import com.ubivelox.authentication.capduService.CapduService;
@@ -34,29 +39,21 @@ public class Athentication
         Athentication.capduService = capduService;
     }
 
-    // public static class OffCard
-    // {
-    // public static String InitializeUpdate_C_APDU = "8050000008EC78EEA2438008A6";
-    // public static String ExternalAuthenticate_C_APDU = "848200001070CA81178C079A4A114998A816CBF511";
-    // }
-
     public static class OffCard
     {
         public static String InitializeUpdate_C_APDU;
         public static String ExternalAuthenticate_C_APDU;
     }
 
-    // public static class CyberCard
-    // {
-    // public static String InitializeUpdate_R_APDU = "00009151026881950639FF02000D4EB131EA95DE5D29FCFE72F724DC";
-    // }
-
     public static class Key
     {
+        public static String ENCKey_MK;
+        public static String MACKey_MK;
+        public static String DEKKey_MK;
+
         public static String ENCKey;
         public static String MACKey;
         public static String DEKKey;
-
      // @formatter:off
         public static byte[] ENC;
 
@@ -82,6 +79,7 @@ public class Athentication
         }
         String hostChallenge = hexString;
         String cAPDU = OffCard.InitializeUpdate_C_APDU.substring(0, 10) + hostChallenge;
+
         return cAPDU;
     }
 
@@ -90,7 +88,8 @@ public class Athentication
 
 
     // 실제로 동작할 때의 메소드
-    public static void getMutualAuthentication(final String hostChallenge) throws GaiaException, UbiveloxException, CardException
+    public static void getMutualAuthentication(final String hostChallenge)
+            throws GaiaException, UbiveloxException, CardException, InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException
     {
 
         capduService.sendApdu(externalAuthenticate(capduService.sendApdu(initializeUpdate(hostChallenge))));
@@ -101,35 +100,32 @@ public class Athentication
 
 
 
-    public static String getSessionKeyENC(final String sessionTypeOrg, final String sequence_counter) throws UbiveloxException, GaiaException
+    public static String getSessionKeyENC(final String sessionTypeOrg, final String sequence_counter)
+            throws UbiveloxException, GaiaException, InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException
     {
         GaiaUtils.checkNullOrEmpty(sessionTypeOrg, sequence_counter);
 
-        byte[] keyType = null;
+        byte[] sessionKey = null;
         String sessionType = "";
 
-        if ( sessionTypeOrg.contains("C-MAC") )
+        if ( sessionTypeOrg.contains("MAC") )
         {
-            keyType = Key.MAC;
+            sessionKey = GaiaUtils.convertHexaStringToByteArray(Key.MACKey + Key.MACKey.substring(0, 16));
             sessionType = "0101";
         }
-        else if ( sessionTypeOrg.contains("R-MAC") )
-        {
-            sessionType = "0102";
-        }
-        else if ( sessionTypeOrg.contains("S-ENC") )
+        else if ( sessionTypeOrg.contains("ENC") )
 
         {
-            keyType = Key.ENC;
+            sessionKey = GaiaUtils.convertHexaStringToByteArray(Key.ENCKey + Key.ENCKey.substring(0, 16));
             sessionType = "0182";
         }
         else if ( sessionTypeOrg.contains("DEK") )
         {
-            keyType = Key.DEK;
+            sessionKey = GaiaUtils.convertHexaStringToByteArray(Key.DEKKey + Key.DEKKey.substring(0, 16));
             sessionType = "0181";
         }
 
-        String S_ENC = Ddes.encrypt(sessionType + sequence_counter + "000000000000000000000000", "DESede", "DESede/CBC/NoPadding", keyType);
+        String S_ENC = Ddes.encrypt(sessionType + sequence_counter + "000000000000000000000000", "DESede", "DESede/CBC/NoPadding", GaiaUtils.convertByteArrayToHexaString(sessionKey));
         return S_ENC;
     }
 
@@ -138,7 +134,8 @@ public class Athentication
 
 
     // off-Card가 Card로 보내는 ExternalAuthenticate APDU
-    public static String externalAuthenticate(final String InitializeUpdate_R_APDU) throws UbiveloxException, GaiaException
+    public static String externalAuthenticate(final String InitializeUpdate_R_APDU)
+            throws UbiveloxException, GaiaException, InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException
     {
         GaiaUtils.checkHexaString(InitializeUpdate_R_APDU);
         // CardImpl cardImpl = new CardImpl();
@@ -151,16 +148,38 @@ public class Athentication
         String sequenceCounter = InitializeUpdate_R_APDU.substring(24, 28);
         String cardChallenge = InitializeUpdate_R_APDU.substring(28, 40);
 
-        String sessionkey = getSessionKeyENC("S-ENC", sequenceCounter);
+        // 노데리베이셔
+        Key.ENCKey = Key.ENCKey_MK;
+        Key.MACKey = Key.MACKey_MK;
+        Key.DEKKey = Key.DEKKey_MK;
+
+        // 데리베이션 암호 생성
+        // Key.ENCKey = Ddes.encrypt(InitializeUpdate_R_APDU.substring(8, 20) + "F001" + InitializeUpdate_R_APDU.substring(8, 20) + "0F01",
+        // "DESede",
+        // "DESede/ECB/NoPadding",
+        // (Key.ENCKey_MK + Key.ENCKey_MK.substring(0, 16)));
+        // Key.MACKey = Ddes.encrypt(InitializeUpdate_R_APDU.substring(8, 20) + "F002" + InitializeUpdate_R_APDU.substring(8, 20) + "0F02",
+        // "DESede",
+        // "DESede/ECB/NoPadding",
+        // Key.MACKey_MK + Key.MACKey_MK.substring(0, 16));
+        // Key.DEKKey = Ddes.encrypt(InitializeUpdate_R_APDU.substring(8, 20) + "F003" + InitializeUpdate_R_APDU.substring(8, 20) + "0F03",
+        // "DESede",
+        // "DESede/ECB/NoPadding",
+        // (Key.DEKKey_MK + Key.DEKKey_MK.substring(0, 16)));
+
+        String sessionkey = getSessionKeyENC("ENC", sequenceCounter);
 
         byte[] sessionkeyByteArray = GaiaUtils.convertHexaStringToByteArray(sessionkey + sessionkey.substring(0, sessionkey.length() / 2));
 
-        String hostCryptogramTmp = Ddes.encrypt(sequenceCounter + cardChallenge + hostChallenge + "8000000000000000", "DESede", "DESede/CBC/NoPadding", sessionkeyByteArray);
+        String hostCryptogramTmp = Ddes.encrypt(sequenceCounter + cardChallenge + hostChallenge + "8000000000000000",
+                                                "DESede",
+                                                "DESede/CBC/NoPadding",
+                                                GaiaUtils.convertByteArrayToHexaString(sessionkeyByteArray));
         // String cardCryptogramTmp = Ddes.encrypt(hostChallenge + sequenceCounter + cardChallenge + "8000000000000000", "DESede", "DESede/CBC/NoPadding", sessionkeyByteArray);
 
         String hostCryptogram = hostCryptogramTmp.substring(hostCryptogramTmp.length() - 16, hostCryptogramTmp.length());
 
-        sessionkey = getSessionKeyENC("C-MAC", sequenceCounter);
+        sessionkey = getSessionKeyENC("MAC", sequenceCounter);
 
         sessionkeyByteArray = GaiaUtils.convertHexaStringToByteArray(sessionkey);
 

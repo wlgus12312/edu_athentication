@@ -16,17 +16,30 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.DESKeySpec;
+import javax.crypto.spec.DESedeKeySpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+
+import org.slf4j.LoggerFactory;
 
 import com.ubivelox.authentication.exception.UbiveloxException;
 import com.ubivelox.gaia.GaiaException;
 import com.ubivelox.gaia.util.GaiaUtils;
 
+import ch.qos.logback.classic.Logger;
+
 public class Ddes
 {
+
+    static Logger LOGGER = (Logger) LoggerFactory.getLogger(Ddes.class);
+
+
+
+
+
     // 초기화 및 키 생성
-    public static Cipher setInit(final String encryptType, final int opmode, final String transformation, final byte[] baseKey) throws UbiveloxException, GaiaException
+    public static Cipher setInit(final String encryptType, final int opmode, final String transformation, final byte[] baseKey)
+            throws UbiveloxException, GaiaException, NoSuchAlgorithmException, InvalidKeyException, InvalidKeySpecException, NoSuchPaddingException
     {
         // @formatter:off
         byte[] keyData24 = new byte[] { 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C,
@@ -64,6 +77,29 @@ public class Ddes
                     e.printStackTrace();
                 }
 
+            }
+            else if ( transformation.contains("ECB") )
+            {
+
+                SecretKeyFactory keyFactory = null;
+
+                try
+                {
+                    keyFactory = SecretKeyFactory.getInstance(encryptType);
+
+                    DESedeKeySpec desSedeKeySpec = new DESedeKeySpec(baseKey);
+
+                    SecretKey key = keyFactory.generateSecret(desSedeKeySpec);
+
+                    cipher = Cipher.getInstance(transformation);
+                    cipher.init(opmode, key);
+
+                }
+                catch ( Exception e )
+                {
+                    e.printStackTrace();
+                    // throw new UbiveloxException("cipher 에러");
+                }
             }
 
             // DES 8비트 키
@@ -159,12 +195,17 @@ public class Ddes
     /*
      * encryptType : 암호화 종류 transformation : 암호화 방법
      */
-    public static String encrypt(final String HexPlainText, final String encryptType, final String transformation, final byte[] baseKey) throws UbiveloxException, GaiaException
+    public static String encrypt(final String HexPlainText, final String encryptType, final String transformation, final String baseKey)
+            throws UbiveloxException, GaiaException, InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException
     {
+        GaiaUtils.checkNullOrEmpty(HexPlainText);
         GaiaUtils.checkHexaString(HexPlainText);
+
         GaiaUtils.checkNullOrEmpty(encryptType, transformation);
 
-        Cipher cipher = setInit(encryptType, Cipher.ENCRYPT_MODE, transformation, baseKey);
+        byte[] bytebaseKey = GaiaUtils.convertHexaStringToByteArray(baseKey);
+
+        Cipher cipher = setInit(encryptType, Cipher.ENCRYPT_MODE, transformation, bytebaseKey);
 
         byte[] inputBytes = GaiaUtils.convertHexaStringToByteArray(HexPlainText);
 
@@ -177,6 +218,7 @@ public class Ddes
         {
             // TODO Auto-generated catch block
             e.printStackTrace();
+
         }
 
         return GaiaUtils.convertByteArrayToHexaString(outputBytes);
@@ -187,7 +229,8 @@ public class Ddes
 
 
     // 복호화 하기
-    public static String decrypt(final String cipherText, final String encryptType, final String transformation, final byte[] baseKey) throws UbiveloxException, GaiaException
+    public static String decrypt(final String cipherText, final String encryptType, final String transformation, final byte[] baseKey)
+            throws UbiveloxException, GaiaException, InvalidKeyException, NoSuchAlgorithmException, InvalidKeySpecException, NoSuchPaddingException
     {
         GaiaUtils.checkNullOrEmpty(cipherText, encryptType, transformation);
 
@@ -320,5 +363,15 @@ public class Ddes
             result[i] = (byte) (aFirstArray[i] ^ aSecondArray[i]);
         }
         return result;
+    }
+
+
+
+
+
+    public static String encryptEcb(final String string, final String string2, final String string3, final byte[] convertHexaStringToByteArray)
+    {
+
+        return null;
     }
 }
